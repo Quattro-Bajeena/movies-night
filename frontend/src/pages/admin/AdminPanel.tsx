@@ -461,9 +461,8 @@ export default function AdminPanel() {
             </form>
           </motion.div>
         )}
-          <motion.div key="panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {!token && <p className="admin-only-note" id="admin-panel-note">Tylko dla administratora — zaloguj się, aby włączyć te opcje.</p>}
-            <fieldset className="admin-controls" disabled={!token} aria-describedby={!token ? 'admin-panel-note' : undefined}>
+        {token && <motion.div key="panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <fieldset className="admin-controls">
             {actionMsg && (
               <motion.div
                 className="action-flash"
@@ -736,7 +735,7 @@ export default function AdminPanel() {
               )}
             </div>
             </fieldset>
-          </motion.div>
+          </motion.div>}
       </AnimatePresence>
     </div>
   )
