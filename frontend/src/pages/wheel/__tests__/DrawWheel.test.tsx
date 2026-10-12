@@ -100,7 +100,9 @@ describe('Draw modes', () => {
     await user.click(screen.getByRole('button', { name: 'KRĘĆ DALEJ!' }))
     expect(api.startDraw).not.toHaveBeenCalled()
     await user.click(await screen.findByRole('button', { name: 'Zakończ animację' }))
-    expect(screen.getByText('Xero i Kaja')).toBeInTheDocument()
+    expect(screen.getByText('Temat autorstwa:').nextElementSibling).toHaveTextContent(/^Xero$/)
+    expect(screen.getByText('Wybiera również').nextElementSibling).toHaveTextContent(/^Kaja$/)
+    expect(screen.queryByText('Xero i Kaja')).not.toBeInTheDocument()
     expect(screen.getByText('Kosmos')).toBeInTheDocument()
   })
 

@@ -153,11 +153,12 @@ export default function DrawWheel({ data, onReload, onBusy, onScoring }: {
             {draw.picks.map((pick, i) => <div key={i}>
               {mode === 'double_theme' && <div className="result-label">Temat {i + 1}</div>}
               <div className="result-category">{pick.category}</div>
+              <div className="result-divider">Temat autorstwa:</div>
               <div className="result-person">{pick.person}</div>
             </div>)}
             {mode === 'cohost' && !draw.pending && <div>
-              <div className="result-divider">Filmy wybierają</div>
-              <div className="result-person">{draw.hosts.join(' i ')}</div>
+              <div className="result-divider">Wybiera również</div>
+              <div className="result-person">{draw.hosts[1]}</div>
             </div>}
             <div className="saved-ok">{draw.pending ? 'Zapisano pierwszy wynik. Zakręć kołem jeszcze raz.' : '✅ Zapisano!'}</div>
             <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void undo()}>
