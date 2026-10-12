@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useAdminSession, setAdminToken } from '../../hooks/useAdminSession'
+import { getErrorMessage } from '../../utils/errors'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
@@ -32,12 +34,14 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
   const [newCat, setNewCat] = useState('')
   const [adding, setAdding] = useState(false)
 
-  // Keep in sync when history prop changes (after reload)
-  useEffect(() => {
+  // Reset the editor only when a new history snapshot arrives.
+  const [sourceHistory, setSourceHistory] = useState(history)
+  if (sourceHistory !== history) {
+    setSourceHistory(history)
     setItems(history)
     setOrderDirty(false)
     setEditingRow(null)
-  }, [history])
+  }
 
   const startEdit = (entry: HistoryEntry) => {
     setEditingRow(entry.row_index)
@@ -55,8 +59,8 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
       onFlash(`✅ Zaktualizowano wpis`)
       setEditingRow(null)
       onChanged()
-    } catch (e: any) {
-      onFlash(`❌ ${e?.response?.data?.detail || 'Błąd zapisu'}`)
+    } catch (e) {
+      onFlash(`❌ ${getErrorMessage(e, 'Błąd zapisu')}`)
     } finally {
       setSaving(false)
     }
@@ -67,8 +71,8 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
       await adminDeleteHistoryEntry(row_index, token)
       onFlash(`🗑 Usunięto: ${label}`)
       onChanged()
-    } catch (e: any) {
-      onFlash(`❌ ${e?.response?.data?.detail || 'Błąd usuwania'}`)
+    } catch (e) {
+      onFlash(`❌ ${getErrorMessage(e, 'Błąd usuwania')}`)
     }
   }
 
@@ -79,8 +83,8 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
       onFlash(`✅ Kolejność zapisana`)
       setOrderDirty(false)
       onChanged()
-    } catch (e: any) {
-      onFlash(`❌ ${e?.response?.data?.detail || 'Błąd zapisu kolejności'}`)
+    } catch (e) {
+      onFlash(`❌ ${getErrorMessage(e, 'Błąd zapisu kolejności')}`)
     } finally {
       setSavingOrder(false)
     }
@@ -100,8 +104,8 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
       setNewPerson('')
       setNewCat('')
       onChanged()
-    } catch (e: any) {
-      onFlash(`❌ ${e?.response?.data?.detail || 'Błąd dodawania'}`)
+    } catch (e) {
+      onFlash(`❌ ${getErrorMessage(e, 'Błąd dodawania')}`)
     } finally {
       setAdding(false)
     }
@@ -145,7 +149,7 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
       <Reorder.Group
         axis="y"
         values={items}
-        onReorder={(newItems) => { setItems(newItems); setOrderDirty(true) }}
+        onReorder={(newItems) => { if (token) { setItems(newItems); setOrderDirty(true) } }}
         className="spin-history-list"
         style={{ listStyle: 'none', padding: 0, margin: 0 }}
       >
@@ -154,7 +158,7 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
             key={entry.row_index}
             value={entry}
             className="spin-history-row sh-row"
-            dragListener={editingRow !== entry.row_index}
+            dragListener={!!token && editingRow !== entry.row_index}
           >
             <span className="sh-drag-handle" title="Przeciągnij aby zmienić kolejność">⠿</span>
             <span className="sh-num">{idx + 1}</span>
@@ -196,20 +200,20 @@ function SpinHistoryEditor({ history, token, onChanged, onFlash }: {
 
 export default function AdminPanel() {
   const nav = useNavigate()
-  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('adminToken'))
+  const token = useAdminSession()
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
 
   const [people, setPeople] = useState<AdminPerson[]>([])
-  const [loadingPeople, setLoadingPeople] = useState(false)
+  const [loadingPeople, setLoadingPeople] = useState(true)
   const [newName, setNewName] = useState('')
   const [addError, setAddError] = useState('')
   const [actionMsg, setActionMsg] = useState('')
 
   const [wheelEntries, setWheelEntries] = useState<WheelEntry[]>([])
   const [wheelHistory, setWheelHistory] = useState<HistoryEntry[]>([])
-  const [loadingWheel, setLoadingWheel] = useState(false)
+  const [loadingWheel, setLoadingWheel] = useState(true)
   const [addCatInputs, setAddCatInputs] = useState<Record<string, string>>({})
   const [addCatSaving, setAddCatSaving] = useState<string | null>(null)
 
@@ -228,34 +232,29 @@ export default function AdminPanel() {
   const [nights, setNights] = useState<NightSummary[]>([])
   const [deletingNight, setDeletingNight] = useState<string | null>(null)
 
-  const loadPeople = async (tok: string) => {
-    setLoadingPeople(true)
-    try {
-      const list = await adminGetPeople(tok)
-      setPeople(list)
-    } catch {
-      setToken(null)
+  const loadPeople = useCallback((tok: string) => adminGetPeople(tok)
+    .then(setPeople)
+    .catch(() => {
+      setAdminToken(null)
       sessionStorage.removeItem('adminToken')
-    } finally {
-      setLoadingPeople(false)
-    }
-  }
+    })
+    .finally(() => setLoadingPeople(false)), [])
 
   const loadWheelCategories = () => {
-    setLoadingWheel(true)
     getWheelData().then(d => {
       setWheelEntries(d.entries)
       setWheelHistory(d.history)
       setForcedSpin(d.forced_spin)
-    }).finally(() => setLoadingWheel(false))
+    }).catch(() => setActionMsg('❌ Nie udało się pobrać koła.')).finally(() => setLoadingWheel(false))
   }
 
   const loadNights = () => getNights().then(setNights).catch(() => {})
 
   useEffect(() => {
-    if (token) { loadPeople(token); loadWheelCategories(); loadNights() }
+    if (token) loadPeople(token)
+    loadWheelCategories(); loadNights()
     getNextNightDate().then(d => { setNextNightDate(d.date ?? ''); setNextNightTime(d.time ?? '') }).catch(() => {})
-  }, [token])
+  }, [token, loadPeople])
 
   const handleSetNextCategory = async () => {
     if (!token || !winnerPersonKey || !winnerCategory) return
@@ -266,8 +265,8 @@ export default function AdminPanel() {
       setWinnerPersonKey('')
       setWinnerCategory('')
       loadWheelCategories()
-    } catch (e: any) {
-      flash(`❌ ${e?.response?.data?.detail || 'Błąd ustawiania zwycięzcy'}`)
+    } catch (e) {
+      flash(`❌ ${getErrorMessage(e, 'Błąd ustawiania zwycięzcy')}`)
     } finally {
       setSettingWinner(false)
     }
@@ -279,8 +278,8 @@ export default function AdminPanel() {
       await adminClearNextCategory(token)
       flash(`🗑 Wyczyszczono następnego zwycięzcę`)
       loadWheelCategories()
-    } catch (e: any) {
-      flash(`❌ ${e?.response?.data?.detail || 'Błąd czyszczenia'}`)
+    } catch (e) {
+      flash(`❌ ${getErrorMessage(e, 'Błąd czyszczenia')}`)
     }
   }
 
@@ -322,8 +321,8 @@ export default function AdminPanel() {
       await adminDeleteNight(season, name, token)
       flash(`🗑 Usunięto noc: ${name}`)
       loadNights()
-    } catch (e: any) {
-      flash(`❌ ${e?.response?.data?.detail || 'Błąd usuwania nocy'}`)
+    } catch (e) {
+      flash(`❌ ${getErrorMessage(e, 'Błąd usuwania nocy')}`)
     } finally {
       setDeletingNight(null)
     }
@@ -347,8 +346,7 @@ export default function AdminPanel() {
     setLoginError('')
     try {
       const { token: tok } = await adminLogin(password)
-      sessionStorage.setItem('adminToken', tok)
-      setToken(tok)
+      setAdminToken(tok)
       setPassword('')
     } catch {
       setLoginError('Nieprawidłowe hasło')
@@ -358,9 +356,9 @@ export default function AdminPanel() {
   }
 
   const handleLogout = async () => {
-    if (token) await adminLogout(token)
+    try { if (token) await adminLogout(token) } finally { setAdminToken(null) }
     sessionStorage.removeItem('adminToken')
-    setToken(null)
+    setAdminToken(null)
     setPeople([])
   }
 
@@ -377,8 +375,8 @@ export default function AdminPanel() {
       flash(`✅ Dodano: ${newName.trim()}`)
       setNewName('')
       await loadPeople(token)
-    } catch (e: any) {
-      setAddError(e?.response?.data?.detail || 'Błąd')
+    } catch (e) {
+      setAddError(getErrorMessage(e, 'Błąd'))
     }
   }
 
@@ -405,8 +403,8 @@ export default function AdminPanel() {
       setAddCatInputs(i => ({ ...i, [personKey]: '' }))
       flash(`✅ Dodano: ${val}`)
       loadWheelCategories()
-    } catch (e: any) {
-      flash(`❌ ${e?.response?.data?.detail || 'Błąd'}`)
+    } catch (e) {
+      flash(`❌ ${getErrorMessage(e, 'Błąd')}`)
     } finally {
       setAddCatSaving(null)
     }
@@ -418,8 +416,8 @@ export default function AdminPanel() {
       await adminDeleteCategory(personKey, category, token)
       flash(`🗑 Usunięto: ${category}`)
       loadWheelCategories()
-    } catch (e: any) {
-      flash(`❌ ${e?.response?.data?.detail || 'Błąd usuwania'}`)
+    } catch (e) {
+      flash(`❌ ${getErrorMessage(e, 'Błąd usuwania')}`)
     }
   }
 
@@ -436,8 +434,8 @@ export default function AdminPanel() {
         )}
       </div>
 
-      <AnimatePresence mode="wait">
-        {!token ? (
+      <AnimatePresence>
+        {!token && (
           <motion.div
             key="login"
             className="login-card"
@@ -461,8 +459,10 @@ export default function AdminPanel() {
               </button>
             </form>
           </motion.div>
-        ) : (
+        )}
           <motion.div key="panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {!token && <p className="admin-only-note" id="admin-panel-note">Tylko dla administratora — zaloguj się, aby włączyć te opcje.</p>}
+            <fieldset className="admin-controls" disabled={!token} aria-describedby={!token ? 'admin-panel-note' : undefined}>
             {actionMsg && (
               <motion.div
                 className="action-flash"
@@ -573,7 +573,7 @@ export default function AdminPanel() {
 
             <div className="admin-section">
               <div className="admin-section-title">👥 Aktywni uczestnicy ({active.length})</div>
-              {loadingPeople ? (
+              {loadingPeople && token ? (
                 <div className="loading"><div className="spinner" /></div>
               ) : (
                 <div className="people-list">
@@ -724,17 +724,17 @@ export default function AdminPanel() {
                 <div className="loading"><div className="spinner" /></div>
               ) : wheelHistory.length === 0 ? (
                 <div className="history-empty">Brak historii</div>
-              ) : token && (
+              ) : (
                 <SpinHistoryEditor
                   history={wheelHistory}
-                  token={token}
+                  token={token ?? ''}
                   onChanged={loadWheelCategories}
                   onFlash={flash}
                 />
               )}
             </div>
+            </fieldset>
           </motion.div>
-        )}
       </AnimatePresence>
     </div>
   )
