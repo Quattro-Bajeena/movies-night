@@ -13,6 +13,7 @@ import {
   getNights, adminDeleteNight,
 } from '../../api'
 import type { AdminPerson, WheelEntry, HistoryEntry, ForcedSpin, NightSummary } from '../../api'
+import DrawSettings from './DrawSettings'
 import './AdminPanel.css'
 
 // ── Spin History Editor ────────────────────────────────────────────────────
@@ -474,6 +475,7 @@ export default function AdminPanel() {
               </motion.div>
             )}
 
+            <DrawSettings token={token} />
             <div className="admin-section">
               <div className="admin-section-title">📅 Następna noc filmowa</div>
               <div className="add-person-row">

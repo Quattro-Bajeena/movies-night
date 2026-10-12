@@ -386,3 +386,29 @@ def _protect_active_history(rows: set[int]):
         tail = get_wheel_data()["history"][-len(draw["picks"]):]
         if any(e["row_index"] in rows for e in tail):
             raise HTTPException(409, "Najpierw cofnij bieżące losowanie, zanim zmienisz jego historię.")
+
+
+class DrawSettingsPayload(BaseModel):
+    initial_penalty: float = Field(ge=0, le=1)
+
+
+@router.get("/draw-settings")
+def get_draw_settings(authorization: str = Header(default=None)):
+    _require_admin(authorization)
+    config = load_config()
+    return {"initial_penalty": config.get("draw_initial_penalty", 0.5),
+            "locked": bool((config.get("active_draw") or {}).get("pending"))}
+
+
+@router.put("/draw-settings")
+@locked(lambda: CONFIG_PATH)
+def set_draw_settings(payload: DrawSettingsPayload, authorization: str = Header(default=None)):
+    _require_admin(authorization)
+    if payload.initial_penalty not in (0, 0.5, 1):
+        raise HTTPException(422, "Wybierz karę 0%, 50% lub 100%.")
+    config = load_config()
+    if (config.get("active_draw") or {}).get("pending"):
+        raise HTTPException(409, "Dokończ lub cofnij losowanie przed zmianą kary.")
+    config["draw_initial_penalty"] = payload.initial_penalty
+    save_config(config)
+    return {"initial_penalty": payload.initial_penalty, "locked": False}

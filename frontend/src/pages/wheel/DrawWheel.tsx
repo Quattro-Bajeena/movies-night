@@ -114,7 +114,7 @@ export default function DrawWheel({ data, onReload, onBusy, onScoring }: {
         <ul>{[...data.entries].sort((a, b) => b.probability - a.probability).map(entry => <li key={entry.key}>
           <strong>{entry.name}</strong>
           <span>{(entry.probability * 100).toLocaleString('pl', { maximumFractionDigits: 2 })}%</span>
-          <small>{entry.nights_ago === 1 ? 'Pauza po ostatniej nocce' : entry.nights_ago
+          <small>{entry.recency_multiplier === 0 ? 'Pauza po ostatniej nocce' : entry.recency_multiplier === 1 ? 'Bez kary' : entry.nights_ago
             ? `${entry.nights_ago} noce temu · ${((entry.recency_multiplier ?? 1) * 100).toLocaleString('pl', { maximumFractionDigits: 2 })}% wagi`
             : 'Bez kary'}</small>
         </li>)}</ul>

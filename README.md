@@ -24,10 +24,13 @@ Live at [nocki.xerobox.pl](https://nocki.xerobox.pl).
 
 Theme draws use the number of remaining tickets as the base weight and include
 all visible wheel participants regardless of attendance. Both theme draws and
-the extra-person draw apply the same recency multiplier: **0** for last night's
-selectors, **0.5** two nights ago, **0.75** three nights ago, **0.875** four nights
-ago, and so on. The penalty halves each night. The extra-person draw starts
-with one ticket per eligible scorer. Weights are then normalized to probabilities.
+extra-person draws apply the configured recency penalty. Administrators choose
+**50% (default)**, 100%, or no penalty. The initial penalty halves each night:
+50%, 25%, 12.5%, etc. in the default mode; 100%, 50%, 25%, etc. in the stricter
+mode. Without a penalty, themes use ticket counts and eligible extra selectors
+have equal weights. Settings cannot change between stages of a pending draw.
+The extra-person draw starts with one ticket per eligible scorer. Weights are
+then normalized to probabilities.
 The most recent selection counts, in either role. Two themes count as one
 completed night; spinning, reloading and undoing do not age the history.
 When no eligible candidate has positive weight, drawing is blocked with an

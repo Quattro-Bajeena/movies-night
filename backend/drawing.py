@@ -26,7 +26,7 @@ def recent_hosts(raw_data: dict) -> list[set[str]]:
     return list(reversed(nights))
 
 
-def recency(name: str, nights: list[set[str]]) -> tuple[int | None, float]:
+def recency(name: str, nights: list[set[str]], initial_penalty: float = 0.5) -> tuple[int | None, float]:
     age = next((i for i, hosts in enumerate(nights, 1) if name in hosts), None)
-    # Last night: 0; two nights ago: 1/2; three: 3/4; four: 7/8...
-    return age, 1.0 if age is None else 1.0 - 2.0 ** (1 - age)
+    # The initial penalty halves for each completed night. Zero disables it.
+    return age, 1.0 if age is None else 1.0 - initial_penalty * 2.0 ** (1 - age)

@@ -254,3 +254,11 @@ export interface AttendanceNight { index: number; name: string; season: number }
 export interface AttendancePerson { name: string; color: string; attendance: boolean[] }
 export interface AttendanceData { nights: AttendanceNight[]; people: AttendancePerson[] }
 export const getAttendance = () => api.get<AttendanceData>('/scores/attendance').then(r => r.data)
+
+
+export type DrawPenalty = 0 | 0.5 | 1
+export interface DrawSettings { initial_penalty: DrawPenalty; locked: boolean }
+export const adminGetDrawSettings = (token: string) =>
+  api.get<DrawSettings>('/admin/draw-settings', { headers: { authorization: token } }).then(r => r.data)
+export const adminSetDrawSettings = (initial_penalty: DrawPenalty, token: string) =>
+  api.put<DrawSettings>('/admin/draw-settings', { initial_penalty }, { headers: { authorization: token } }).then(r => r.data)

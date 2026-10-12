@@ -42,10 +42,11 @@ def _compute_weights(raw_data: dict, nights: list[set[str]] | None = None) -> li
         else:
             merged[display]["categories"].extend(cats)
 
+    initial_penalty = load_config().get("draw_initial_penalty", 0.5)
     entries = []
     for entry in merged.values():
         entry["count"] = len(entry["categories"])
-        age, multiplier = recency(entry["name"], nights)
+        age, multiplier = recency(entry["name"], nights, initial_penalty)
         entry["nights_ago"] = age
         entry["recency_multiplier"] = multiplier
         entry["weight"] = entry["count"] * multiplier
@@ -369,9 +370,9 @@ def start_draw(payload: DrawPayload):
     entries = _compute_weights(raw, nights)
     pool = _theme_pool(entries)
     if not pool:
-        raise HTTPException(400, "Brak dostępnych tematów. Osoby wybierające na ostatniej nocce mają zerową szansę.")
+        raise HTTPException(400, "Brak dostępnych tematów z dodatnią wagą przy obecnych ustawieniach losowania.")
     people = sorted({normalize_name(p) for p in get_last_night_people()})
-    person_weights = {p: recency(p, nights)[1] for p in people if recency(p, nights)[1] > 0}
+    person_weights = {p: recency(p, nights, config.get("draw_initial_penalty", 0.5))[1] for p in people if recency(p, nights, config.get("draw_initial_penalty", 0.5))[1] > 0}
     # Validate both stages before consuming a ticket. Do not silently reweight
     # the first stage just to make a two-person mode possible.
     if payload.mode == "double_theme" and any(not _theme_pool(entries, p) for p in pool):
@@ -423,7 +424,7 @@ def finish_draw(draw_id: str):
         weights = draw.get("person_weights")
         if weights is None:
             nights = recent_hosts(get_wheel_data())
-            weights = {p: recency(p, nights)[1] for p in draw["eligible_people"]}
+            weights = {p: recency(p, nights, config.get("draw_initial_penalty", 0.5))[1] for p in draw["eligible_people"]}
         candidates = [p for p in draw["eligible_people"] if weights.get(p, 0) > 0]
         if not candidates:
             raise HTTPException(409, "Brak drugiej osoby z dodatnią wagą. Cofnij losowanie.")
